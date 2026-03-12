@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Straw Hat — Quiz Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="bg-mesh"></div>
+<div id="app">
+
+  <!-- ══ HEADER ══ -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎩</div>
+      <span class="logo-text">Straw Hat</span>
+      <span class="logo-badge">Quiz</span>
+    </div>
+    <div class="header-actions">
+      <div class="header-stat" id="headerStat" style="display:none">
+        <span id="headerScoreLabel">Score:</span> <span id="headerScore">0/0</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ══ HOME SCREEN ══ -->
+    <div class="screen active" id="screen-home">
+      <div class="hero">
+        <div class="hero-label" id="heroLabel">✦ Straw Hat Quiz Engine</div>
+        <h1 id="heroTitle">Generate quizzes on<br><em>anything, instantly</em></h1>
+        <p id="heroDesc">Type any topic and get a professionally crafted, adaptive quiz powered by AI — complete with explanations.</p>
+      </div>
+
+      <div class="generate-card">
+        <div class="card-title" id="cardTitle">Create your quiz</div>
+
+        <div class="topic-input-wrap">
+          <input
+            type="text"
+            class="topic-input"
+            id="topicInput"
+            placeholder="e.g. The French Revolution, Python decorators, Human anatomy…"
+            maxlength="120"
+          >
+        </div>
+
+        <div class="topic-chips">
+          <div class="chips-label" id="chipsLabel">Popular topics</div>
+          <div class="chips-wrap" id="topicChips">
+            <button class="chip" data-topic="World History">🌍 World History</button>
+            <button class="chip" data-topic="JavaScript fundamentals">⚡ JavaScript</button>
+            <button class="chip" data-topic="Human Biology">🫀 Biology</button>
+            <button class="chip" data-topic="Space and Astronomy">🚀 Space</button>
+            <button class="chip" data-topic="Classical Music">🎵 Classical Music</button>
+            <button class="chip" data-topic="Machine Learning basics">🤖 ML Basics</button>
+            <button class="chip" data-topic="World Geography">🗺️ Geography</button>
+            <button class="chip" data-topic="Philosophy">🏛️ Philosophy</button>
+            <button class="chip" data-topic="Climate Change">🌱 Climate</button>
+            <button class="chip" data-topic="Economics">📈 Economics</button>
+            <button class="chip" data-topic="Bangladesh Affairs">🇧🇩 Bangladesh Affairs</button>
+            <button class="chip" data-topic="SSC Math Bangladesh">📐 SSC Math</button>
+            <button class="chip" data-topic="HSC Physics Bangladesh">🧲 HSC Physics</button>
+            <button class="chip" data-topic="HSC Chemistry Bangladesh">🧪 HSC Chemistry</button>
+            <button class="chip" data-topic="HSC Biology Bangladesh">🧬 HSC Biology</button>
+            <button class="chip" data-topic="HSC ICT Bangladesh">💻 HSC ICT</button>
+          </div>
+        </div>
+
+        <div class="config-row">
+          <div class="config-group">
+            <label id="labelQuestions">Questions</label>
+            <select class="config-select" id="numQuestions">
+              <option value="5">5 questions</option>
+              <option value="8" selected>8 questions</option>
+              <option value="10">10 questions</option>
+              <option value="15">15 questions</option>
+            </select>
+          </div>
+          <div class="config-group">
+            <label id="labelDifficulty">Difficulty</label>
+            <select class="config-select" id="difficulty">
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+              <option value="mixed">Mixed</option>
+            </select>
+          </div>
+          <div class="config-group">
+            <label id="labelStyle">Style</label>
+            <select class="config-select" id="quizStyle">
+              <option value="factual">Factual</option>
+              <option value="conceptual" selected>Conceptual</option>
+              <option value="scenario">Scenario-based</option>
+              <option value="tricky">Tricky</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="config-row config-row-secondary">
+          <div class="config-group">
+            <label id="labelBoardLevel">Board Level</label>
+            <select class="config-select" id="boardLevel">
+              <option value="all" selected>All</option>
+              <option value="ssc">SSC</option>
+              <option value="hsc">HSC</option>
+            </select>
+          </div>
+          <div class="config-group">
+            <label id="labelChapter">Chapter</label>
+            <select class="config-select" id="chapterSelect">
+              <option value="all" selected>All Chapters</option>
+            </select>
+          </div>
+          <div class="config-group">
+            <label id="labelLanguage">Language</label>
+            <select class="config-select" id="languageSelect">
+              <option value="en" selected>English</option>
+              <option value="bn">Bangla</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="topic-chips chapter-chips-wrap" id="chapterChipBlock" style="display:none">
+          <div class="chips-label" id="chapterChipLabel">Quick chapter select</div>
+          <div class="chips-wrap" id="chapterChips"></div>
+        </div>
+
+        <div class="action-row">
+          <button class="generate-btn" id="generateBtn">
+            <span>✦</span>
+            <span id="generateBtnText">Generate Quiz</span>
+          </button>
+          <button class="export-btn" id="exportBtn">Export Filtered Set</button>
+        </div>
+
+        <div class="error-box" id="errorBox">
+          <strong id="errorTitle">Failed to generate quiz</strong>
+          <span id="errorMsg">Please try again.</span>
+        </div>
+      </div>
+
+      <div class="features">
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <div class="feature-title">Smart Questions</div>
+          <div class="feature-desc">AI crafts varied, meaningful questions tailored to your chosen topic and level</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💡</div>
+          <div class="feature-title">Explanations</div>
+          <div class="feature-desc">Every answer comes with a detailed explanation to reinforce learning</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <div class="feature-title">Full Analytics</div>
+          <div class="feature-desc">Detailed score breakdown and performance review after every quiz</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ LOADING SCREEN ══ -->
+    <div class="screen" id="screen-loading">
+      <div class="loading-wrap">
+        <div class="loading-orb"></div>
+        <div class="loading-title" id="loadingTitle">Crafting your quiz…</div>
+        <div class="loading-status" id="loadingStatus">Researching topic</div>
+        <div class="loading-bar">
+          <div class="loading-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ QUIZ SCREEN ══ -->
+    <div class="screen" id="screen-quiz">
+      <div class="quiz-header">
+        <div class="quiz-meta-info">
+          <div class="quiz-topic-label" id="quizTopicLabel">Topic</div>
+          <div class="quiz-title-main"  id="quizTitleMain">Quiz</div>
+        </div>
+        <div class="quiz-stats">
+          <div class="stat-pill"><span class="dot"></span><span id="correctCount">0</span> <span id="correctStatLabel">correct</span></div>
+          <div class="stat-pill"><span class="dot wrong"></span><span id="wrongCount">0</span> <span id="wrongStatLabel">wrong</span></div>
+        </div>
+      </div>
+
+      <div class="progress-section">
+        <div class="progress-top">
+          <div class="progress-text" id="progressText">Question 1 of 8</div>
+          <div class="progress-pct"  id="progressPct">0%</div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div id="questionArea"></div>
+
+      <div class="quiz-nav">
+        <button class="nav-btn nav-btn-ghost"   id="skipBtn">Skip →</button>
+        <button class="nav-btn nav-btn-primary" id="nextBtn" disabled>Next <span>→</span></button>
+      </div>
+    </div>
+
+    <!-- ══ RESULTS SCREEN ══ -->
+    <div class="screen" id="screen-results">
+      <div class="results-hero">
+        <div class="score-ring-wrap">
+          <svg class="score-ring" viewBox="0 0 120 120">
+            <defs>
+              <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%"   style="stop-color:#6c63ff"/>
+                <stop offset="100%" style="stop-color:#ff6584"/>
+              </linearGradient>
+            </defs>
+            <circle class="score-ring-bg"   cx="60" cy="60" r="54"/>
+            <circle class="score-ring-fill" id="scoreRingFill" cx="60" cy="60" r="54"/>
+          </svg>
+          <div class="score-center">
+            <div class="score-number" id="scoreNumDisplay">0</div>
+            <div class="score-denom"  id="scoreDenom">/0</div>
+          </div>
+        </div>
+
+        <div class="results-grade"   id="resultsGrade">—</div>
+        <div class="results-message" id="resultsMessage">—</div>
+
+        <div class="results-stats-grid">
+          <div class="result-stat-card">
+            <div class="rsc-value" id="rscCorrect" style="color:var(--green)">0</div>
+            <div class="rsc-label">Correct</div>
+          </div>
+          <div class="result-stat-card">
+            <div class="rsc-value" id="rscWrong" style="color:var(--red)">0</div>
+            <div class="rsc-label">Incorrect</div>
+          </div>
+          <div class="result-stat-card">
+            <div class="rsc-value" id="rscPct" style="color:var(--accent)">0%</div>
+            <div class="rsc-label">Score</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="review-section">
+        <div class="review-title" id="reviewTitle">Question Review</div>
+        <div id="reviewList"></div>
+      </div>
+
+      <div class="results-actions">
+        <button class="nav-btn nav-btn-ghost"   id="questionSheetBtn">📝 Question Sheet PDF</button>
+        <button class="nav-btn nav-btn-ghost"   id="answerKeyBtn">🔑 Answer Key PDF</button>
+        <button class="nav-btn nav-btn-ghost"   id="answerSheetBtn">📄 Answer Sheet PDF</button>
+        <button class="nav-btn nav-btn-ghost"   id="newTopicBtn">🏠 New Topic</button>
+        <button class="nav-btn nav-btn-primary" id="retryBtn">↺ Retry Same Quiz</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Feedback toast -->
+<div class="feedback-flash" id="feedbackFlash"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
