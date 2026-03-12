@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Straw Hat — Quiz Generator</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,6 +20,7 @@
       <span class="logo-badge">Quiz</span>
     </div>
     <div class="header-actions">
+      <button class="theme-toggle-btn" id="themeToggleBtn">🌙 Dark</button>
       <div class="header-stat" id="headerStat" style="display:none">
         <span id="headerScoreLabel">Score:</span> <span id="headerScore">0/0</span>
       </div>
@@ -28,8 +29,50 @@
 
   <main>
 
+    <!-- ══ CATEGORY SCREEN ══ -->
+    <div class="screen active" id="screen-category">
+      <div class="hero">
+        <div class="hero-label" id="categoryHeroLabel">✦ Quiz Category</div>
+        <h1 id="categoryHeroTitle">Choose a category<br><em>before you start</em></h1>
+        <p id="categoryHeroDesc">Pick one category to shape your quiz question set.</p>
+      </div>
+
+      <div class="generate-card">
+        <div class="card-title" id="categorySelectTitle">Select category</div>
+        <div class="category-grid" id="categoryGrid">
+          <button class="category-choice" type="button" data-category="science">
+            <span class="category-choice-icon">🔬</span>
+            <span class="category-choice-title">Science</span>
+            <span class="category-choice-desc">Physics, chemistry, biology, and more</span>
+          </button>
+          <button class="category-choice" type="button" data-category="programming">
+            <span class="category-choice-icon">💻</span>
+            <span class="category-choice-title">Programming</span>
+            <span class="category-choice-desc">Code, computing, and software concepts</span>
+          </button>
+          <button class="category-choice" type="button" data-category="history">
+            <span class="category-choice-icon">🏛️</span>
+            <span class="category-choice-title">History</span>
+            <span class="category-choice-desc">Ancient to modern historical knowledge</span>
+          </button>
+          <button class="category-choice" type="button" data-category="general">
+            <span class="category-choice-icon">🌍</span>
+            <span class="category-choice-title">General Knowledge</span>
+            <span class="category-choice-desc">Mixed facts across broad domains</span>
+          </button>
+        </div>
+
+        <div class="category-actions">
+          <button class="generate-btn" id="categoryContinueBtn" disabled>
+            <span>→</span>
+            <span id="categoryContinueText">Continue</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ HOME SCREEN ══ -->
-    <div class="screen active" id="screen-home">
+    <div class="screen" id="screen-home">
       <div class="hero">
         <div class="hero-label" id="heroLabel">✦ Straw Hat Quiz Engine</div>
         <h1 id="heroTitle">Generate quizzes on<br><em>anything, instantly</em></h1>
@@ -172,6 +215,7 @@
         <div class="loading-bar">
           <div class="loading-bar-fill"></div>
         </div>
+        <div class="api-source-badge" id="apiPoweredLoading">Powered by Open Trivia DB</div>
       </div>
     </div>
 
@@ -209,6 +253,7 @@
     <!-- ══ RESULTS SCREEN ══ -->
     <div class="screen" id="screen-results">
       <div class="results-hero">
+        <div class="api-source-badge api-source-badge-results" id="apiPoweredResults">Powered by Open Trivia DB</div>
         <div class="score-ring-wrap">
           <svg class="score-ring" viewBox="0 0 120 120">
             <defs>
@@ -229,18 +274,26 @@
         <div class="results-grade"   id="resultsGrade">—</div>
         <div class="results-message" id="resultsMessage">—</div>
 
-        <div class="results-stats-grid">
+        <div class="results-stats-grid results-dashboard-grid">
+          <div class="result-stat-card result-stat-emphasis">
+            <div class="rsc-value" id="rscPct" style="color:var(--accent)">0%</div>
+            <div class="rsc-label">Percentage Score</div>
+          </div>
+          <div class="result-stat-card">
+            <div class="rsc-value" id="rscTotal">0</div>
+            <div class="rsc-label">Total Questions</div>
+          </div>
           <div class="result-stat-card">
             <div class="rsc-value" id="rscCorrect" style="color:var(--green)">0</div>
-            <div class="rsc-label">Correct</div>
+            <div class="rsc-label">Total Correct</div>
           </div>
           <div class="result-stat-card">
             <div class="rsc-value" id="rscWrong" style="color:var(--red)">0</div>
-            <div class="rsc-label">Incorrect</div>
+            <div class="rsc-label">Total Incorrect</div>
           </div>
           <div class="result-stat-card">
-            <div class="rsc-value" id="rscPct" style="color:var(--accent)">0%</div>
-            <div class="rsc-label">Score</div>
+            <div class="rsc-value" id="rscPerformance">—</div>
+            <div class="rsc-label">Performance</div>
           </div>
         </div>
       </div>
@@ -248,6 +301,16 @@
       <div class="review-section">
         <div class="review-title" id="reviewTitle">Question Review</div>
         <div id="reviewList"></div>
+      </div>
+
+      <div class="review-section leaderboard-section">
+        <div class="review-title">Leaderboard (Top 5)</div>
+        <div class="leaderboard-save-row">
+          <input id="leaderboardNameInput" class="topic-input leaderboard-name-input" type="text" maxlength="32" placeholder="Enter your name">
+          <button id="saveScoreBtn" class="nav-btn nav-btn-primary" type="button">Save Score</button>
+        </div>
+        <div id="leaderboardEmpty" class="leaderboard-empty">No scores saved yet.</div>
+        <div id="leaderboardList" class="leaderboard-list"></div>
       </div>
 
       <div class="results-actions">

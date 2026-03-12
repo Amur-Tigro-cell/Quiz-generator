@@ -8,8 +8,61 @@ let userAnswers = [];
 let currentTopic = "";
 let answered = false;
 let historyFallbackUsed = false;
+let questionTransitionTimer = null;
+let questionTimerInterval = null;
+let questionTimeLeft = 15;
+let leaderboardSavedForCurrentQuiz = false;
+let selectedQuizCategoryKey = null;
+
+const QUESTION_TIME_LIMIT = 15;
 
 const HISTORY_STORAGE_KEY = "quiz_seen_history_v1";
+const THEME_STORAGE_KEY = "quiz_theme_preference_v1";
+const LEADERBOARD_STORAGE_KEY = "quiz_leaderboard_top_scores_v1";
+const PLAYER_NAME_STORAGE_KEY = "quiz_player_name_v1";
+const USE_OPEN_TRIVIA_API = true;
+
+const QUIZ_CATEGORY_OPTIONS = {
+  science: { topic: "Science", apiCategoryId: 17, icon: "🔬" },
+  programming: { topic: "Programming", apiCategoryId: 18, icon: "💻" },
+  history: { topic: "History", apiCategoryId: 23, icon: "🏛️" },
+  general: { topic: "General Knowledge", apiCategoryId: 9, icon: "🌍" }
+};
+
+const CATEGORY_TOPIC_CHIPS = {
+  science: [
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "Astronomy",
+    "Earth Science",
+    "Human Anatomy"
+  ],
+  programming: [
+    "JavaScript fundamentals",
+    "Python programming",
+    "Data Structures",
+    "Algorithms",
+    "Web Development",
+    "Databases"
+  ],
+  history: [
+    "World History",
+    "Ancient Civilizations",
+    "Modern History",
+    "World War II",
+    "Renaissance",
+    "South Asian History"
+  ],
+  general: [
+    "General Knowledge",
+    "World Geography",
+    "Global Culture",
+    "Current Affairs",
+    "Famous Inventions",
+    "Sports Facts"
+  ]
+};
 
 const STATUSES = {
   en: [
@@ -61,6 +114,7 @@ const UI_LABELS = {
     newTopicBtn: "🏠 New Topic",
     retryBtn: "↺ Retry Same Quiz",
     questionWord: "Question",
+    timerLabel: "Time left",
     nextBtn: "Next ->",
     resultsBtn: "See Results ->",
     skipBtn: "Skip ->",
@@ -84,6 +138,8 @@ const UI_LABELS = {
     allLevels: "All",
     english: "English",
     bangla: "Bangla",
+    darkMode: "🌙 Dark",
+    lightMode: "☀️ Light",
     factual: "Factual",
     conceptual: "Conceptual",
     scenario: "Scenario-based",
@@ -101,7 +157,21 @@ const UI_LABELS = {
     historyRepeatNotice: "Some repeated questions were used (question bank exhausted for selected filters)",
     exportEmpty: "No questions found for this filter",
     noTopic: "Please enter a topic first.",
-    topicPlaceholder: "e.g. SSC Math Bangladesh, HSC Physics..."
+    topicPlaceholder: "e.g. SSC Math Bangladesh, HSC Physics...",
+    apiPowered: "Powered by Open Trivia DB",
+    categoryHeroLabel: "✦ Quiz Category",
+    categoryHeroTitle: "Choose a category<br><em>before you start</em>",
+    categoryHeroDesc: "Pick one category to shape your quiz question set.",
+    categorySelectTitle: "Select category",
+    categoryContinueText: "Continue",
+    categoryScienceTitle: "Science",
+    categoryScienceDesc: "Physics, chemistry, biology, and more",
+    categoryProgrammingTitle: "Programming",
+    categoryProgrammingDesc: "Code, computing, and software concepts",
+    categoryHistoryTitle: "History",
+    categoryHistoryDesc: "Ancient to modern historical knowledge",
+    categoryGeneralTitle: "General Knowledge",
+    categoryGeneralDesc: "Mixed facts across broad domains"
   },
   bn: {
     score: "স্কোর:",
@@ -131,6 +201,7 @@ const UI_LABELS = {
     newTopicBtn: "🏠 নতুন বিষয়",
     retryBtn: "↺ একই কুইজ আবার",
     questionWord: "প্রশ্ন",
+    timerLabel: "সময় বাকি",
     nextBtn: "পরেরটি ->",
     resultsBtn: "ফলাফল দেখো ->",
     skipBtn: "এড়িয়ে যাও ->",
@@ -154,6 +225,8 @@ const UI_LABELS = {
     allLevels: "সব",
     english: "ইংরেজি",
     bangla: "বাংলা",
+    darkMode: "🌙 ডার্ক",
+    lightMode: "☀️ লাইট",
     factual: "তথ্যভিত্তিক",
     conceptual: "ধারণাভিত্তিক",
     scenario: "পরিস্থিতিভিত্তিক",
@@ -171,7 +244,21 @@ const UI_LABELS = {
     historyRepeatNotice: "নির্বাচিত ফিল্টারে প্রশ্ন শেষ হওয়ায় কিছু পুনরাবৃত্ত প্রশ্ন এসেছে",
     exportEmpty: "এই ফিল্টারে কোনো প্রশ্ন পাওয়া যায়নি",
     noTopic: "আগে একটি বিষয় লিখো।",
-    topicPlaceholder: "যেমন: SSC Math Bangladesh, HSC Physics..."
+    topicPlaceholder: "যেমন: SSC Math Bangladesh, HSC Physics...",
+    apiPowered: "Open Trivia DB দ্বারা চালিত",
+    categoryHeroLabel: "✦ কুইজ ক্যাটাগরি",
+    categoryHeroTitle: "শুরু করার আগে<br><em>একটি ক্যাটাগরি বেছে নাও</em>",
+    categoryHeroDesc: "একটি ক্যাটাগরি বেছে নিলে প্রশ্ন সেই অনুযায়ী আসবে।",
+    categorySelectTitle: "ক্যাটাগরি নির্বাচন",
+    categoryContinueText: "চালিয়ে যাও",
+    categoryScienceTitle: "বিজ্ঞান",
+    categoryScienceDesc: "পদার্থ, রসায়ন, জীববিজ্ঞানসহ আরও বিষয়",
+    categoryProgrammingTitle: "প্রোগ্রামিং",
+    categoryProgrammingDesc: "কোড, কম্পিউটিং ও সফটওয়্যার ধারণা",
+    categoryHistoryTitle: "ইতিহাস",
+    categoryHistoryDesc: "প্রাচীন থেকে আধুনিক ইতিহাসভিত্তিক প্রশ্ন",
+    categoryGeneralTitle: "সাধারণ জ্ঞান",
+    categoryGeneralDesc: "বিভিন্ন বিষয়ের মিশ্র জ্ঞানভিত্তিক প্রশ্ন"
   }
 };
 
@@ -511,9 +598,58 @@ function setText(id, value, isHtml = false) {
   }
 }
 
+function getSavedTheme() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch (error) {
+    return null;
+  }
+}
+
+function updateThemeToggleText() {
+  const btn = document.getElementById("themeToggleBtn");
+  if (!btn) {
+    return;
+  }
+  const isDark = document.body.getAttribute("data-theme") === "dark";
+  btn.textContent = isDark ? t("lightMode") : t("darkMode");
+}
+
+function applyTheme(theme, persist = true) {
+  const finalTheme = theme === "dark" ? "dark" : "light";
+  document.body.setAttribute("data-theme", finalTheme);
+
+  if (persist) {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, finalTheme);
+    } catch (error) {
+      // Ignore storage errors.
+    }
+  }
+
+  updateThemeToggleText();
+}
+
+function initThemePreference() {
+  const saved = getSavedTheme();
+  if (saved === "dark" || saved === "light") {
+    applyTheme(saved, false);
+    return;
+  }
+
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(prefersDark ? "dark" : "light", false);
+}
+
 function applyLanguageToUI() {
   const language = getCurrentLanguage();
   document.documentElement.lang = language;
+
+  setText("categoryHeroLabel", t("categoryHeroLabel"));
+  setText("categoryHeroTitle", t("categoryHeroTitle"), true);
+  setText("categoryHeroDesc", t("categoryHeroDesc"));
+  setText("categorySelectTitle", t("categorySelectTitle"));
+  setText("categoryContinueText", t("categoryContinueText"));
 
   setText("headerScoreLabel", t("score"));
   setText("heroLabel", t("heroLabel"));
@@ -532,6 +668,8 @@ function applyLanguageToUI() {
   setText("exportBtn", t("exportBtnText"));
   setText("errorTitle", t("errorTitle"));
   setText("loadingTitle", t("loadingTitle"));
+  setText("apiPoweredLoading", t("apiPowered"));
+  setText("apiPoweredResults", t("apiPowered"));
   setText("correctStatLabel", t("correctLabel"));
   setText("wrongStatLabel", t("wrongLabel"));
   setText("reviewTitle", t("reviewTitle"));
@@ -588,8 +726,265 @@ function applyLanguageToUI() {
   if (document.getElementById("errorMsg").textContent.trim() === "Please try again.") {
     setText("errorMsg", t("errorDefault"));
   }
+
+  updateThemeToggleText();
+
+  const leaderboardNameInput = document.getElementById("leaderboardNameInput");
+  if (leaderboardNameInput) {
+    leaderboardNameInput.placeholder = "Enter your name";
+  }
+
+  const saveScoreBtn = document.getElementById("saveScoreBtn");
+  if (saveScoreBtn) {
+    saveScoreBtn.textContent = "Save Score";
+  }
+
+  const leaderboardEmpty = document.getElementById("leaderboardEmpty");
+  if (leaderboardEmpty && !leaderboardEmpty.dataset.hasScores) {
+    leaderboardEmpty.textContent = "No scores saved yet.";
+  }
+
+  applyCategoryLabels();
+  applyApiModeUiConstraints();
 }
 
+function selectedCategoryOption() {
+  return selectedQuizCategoryKey ? QUIZ_CATEGORY_OPTIONS[selectedQuizCategoryKey] : null;
+}
+
+function applyCategoryLabels() {
+  const labelMap = {
+    science: { title: t("categoryScienceTitle"), desc: t("categoryScienceDesc") },
+    programming: { title: t("categoryProgrammingTitle"), desc: t("categoryProgrammingDesc") },
+    history: { title: t("categoryHistoryTitle"), desc: t("categoryHistoryDesc") },
+    general: { title: t("categoryGeneralTitle"), desc: t("categoryGeneralDesc") }
+  };
+
+  document.querySelectorAll(".category-choice").forEach((card) => {
+    const key = card.dataset.category;
+    const labels = labelMap[key];
+    if (!labels) {
+      return;
+    }
+    const title = card.querySelector(".category-choice-title");
+    const desc = card.querySelector(".category-choice-desc");
+    if (title) {
+      title.textContent = labels.title;
+    }
+    if (desc) {
+      desc.textContent = labels.desc;
+    }
+  });
+}
+
+function renderTopicChipsForSelectedCategory() {
+  const topicChips = document.getElementById("topicChips");
+  if (!topicChips) {
+    return;
+  }
+
+  const topics = CATEGORY_TOPIC_CHIPS[selectedQuizCategoryKey] || [];
+  topicChips.innerHTML = topics.map((topic) => (
+    `<button class="chip" type="button" data-topic="${escHtml(topic)}">${escHtml(topic)}</button>`
+  )).join("");
+}
+
+function selectQuizCategory(key) {
+  if (!QUIZ_CATEGORY_OPTIONS[key]) {
+    return;
+  }
+  selectedQuizCategoryKey = key;
+
+  const option = selectedCategoryOption();
+  const topicInput = document.getElementById("topicInput");
+  if (topicInput && option) {
+    topicInput.value = option.topic;
+  }
+
+  renderTopicChipsForSelectedCategory();
+
+  document.querySelectorAll(".category-choice").forEach((card) => {
+    card.classList.toggle("active", card.dataset.category === key);
+  });
+
+  const continueBtn = document.getElementById("categoryContinueBtn");
+  if (continueBtn) {
+    continueBtn.disabled = false;
+  }
+}
+
+function applyApiModeUiConstraints() {
+  const boardLevel = document.getElementById("boardLevel");
+  const chapterSelect = document.getElementById("chapterSelect");
+  const chapterChipBlock = document.getElementById("chapterChipBlock");
+
+  if (!boardLevel || !chapterSelect) {
+    return;
+  }
+
+  const boardGroup = boardLevel.closest(".config-group");
+  const chapterGroup = chapterSelect.closest(".config-group");
+
+  if (!USE_OPEN_TRIVIA_API) {
+    boardLevel.disabled = false;
+    chapterSelect.disabled = false;
+    if (boardGroup) {
+      boardGroup.style.display = "";
+    }
+    if (chapterGroup) {
+      chapterGroup.style.display = "";
+    }
+    return;
+  }
+
+  boardLevel.value = "all";
+  boardLevel.disabled = true;
+
+  chapterSelect.innerHTML = `<option value="all" selected>${t("allChapters")}</option>`;
+  chapterSelect.value = "all";
+  chapterSelect.disabled = true;
+
+  if (boardGroup) {
+    boardGroup.style.display = "none";
+  }
+  if (chapterGroup) {
+    chapterGroup.style.display = "none";
+  }
+  if (chapterChipBlock) {
+    chapterChipBlock.style.display = "none";
+  }
+}
+
+
+function sanitizePlayerName(name) {
+  const cleaned = String(name || "").trim().replace(/\s+/g, " ");
+  if (!cleaned) {
+    return "Anonymous";
+  }
+  return cleaned.slice(0, 32);
+}
+
+function getStoredPlayerName() {
+  try {
+    return localStorage.getItem(PLAYER_NAME_STORAGE_KEY) || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function setStoredPlayerName(name) {
+  try {
+    localStorage.setItem(PLAYER_NAME_STORAGE_KEY, sanitizePlayerName(name));
+  } catch (error) {
+    // Ignore storage failures.
+  }
+}
+
+function getLeaderboardEntries() {
+  try {
+    const raw = localStorage.getItem(LEADERBOARD_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveLeaderboardEntries(entries) {
+  try {
+    localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(entries));
+  } catch (error) {
+    // Ignore storage failures.
+  }
+}
+
+function sortLeaderboard(entries) {
+  return entries.slice().sort((a, b) => {
+    if ((b.pct || 0) !== (a.pct || 0)) {
+      return (b.pct || 0) - (a.pct || 0);
+    }
+    if ((b.correct || 0) !== (a.correct || 0)) {
+      return (b.correct || 0) - (a.correct || 0);
+    }
+    return (a.ts || 0) - (b.ts || 0);
+  });
+}
+
+function renderLeaderboard() {
+  const listEl = document.getElementById("leaderboardList");
+  const emptyEl = document.getElementById("leaderboardEmpty");
+  if (!listEl || !emptyEl) {
+    return;
+  }
+
+  const entries = sortLeaderboard(getLeaderboardEntries()).slice(0, 5);
+  listEl.innerHTML = "";
+
+  if (!entries.length) {
+    emptyEl.dataset.hasScores = "false";
+    emptyEl.style.display = "block";
+    emptyEl.textContent = "No scores saved yet.";
+    return;
+  }
+
+  emptyEl.dataset.hasScores = "true";
+  emptyEl.style.display = "none";
+
+  entries.forEach((entry, idx) => {
+    const item = document.createElement("div");
+    item.className = "leaderboard-item";
+    item.innerHTML = `
+      <div class="leaderboard-rank">${idx + 1}</div>
+      <div class="leaderboard-name">${escHtml(entry.name)}</div>
+      <div class="leaderboard-score">${entry.correct}/${entry.total} (${entry.pct}%)</div>
+    `;
+    listEl.appendChild(item);
+  });
+}
+
+function saveCurrentScoreToLeaderboard() {
+  if (!quiz.length || leaderboardSavedForCurrentQuiz) {
+    return;
+  }
+
+  const nameInput = document.getElementById("leaderboardNameInput");
+  const saveScoreBtn = document.getElementById("saveScoreBtn");
+  const name = sanitizePlayerName(nameInput ? nameInput.value : "");
+  const total = quiz.length;
+  const correct = correctCount;
+  const pct = total ? Math.round((correct / total) * 100) : 0;
+
+  setStoredPlayerName(name);
+  if (nameInput) {
+    nameInput.value = name;
+  }
+
+  const entries = getLeaderboardEntries();
+  entries.push({
+    name,
+    correct,
+    total,
+    pct,
+    topic: currentTopic,
+    ts: Date.now()
+  });
+
+  const topEntries = sortLeaderboard(entries).slice(0, 5);
+  saveLeaderboardEntries(topEntries);
+  renderLeaderboard();
+
+  leaderboardSavedForCurrentQuiz = true;
+  if (saveScoreBtn) {
+    saveScoreBtn.disabled = true;
+  }
+
+  const flash = document.getElementById("feedbackFlash");
+  flash.textContent = "Score saved to leaderboard";
+  flash.className = "feedback-flash correct show";
+  setTimeout(() => {
+    flash.classList.remove("show");
+  }, 1600);
+}
 function normalizeTopic(topic) {
   return String(topic || "").toLowerCase().trim();
 }
@@ -1434,6 +1829,11 @@ function getCurrentBdSubject() {
 }
 
 function updateChapterOptions() {
+  if (USE_OPEN_TRIVIA_API) {
+    applyApiModeUiConstraints();
+    return;
+  }
+
   const chapterSelect = document.getElementById("chapterSelect");
   const boardLevelSelect = document.getElementById("boardLevel");
   const language = document.getElementById("languageSelect").value;
@@ -1514,15 +1914,213 @@ function syncChapterChipSelection() {
 }
 
 function getQuizConfig() {
+  const selectedCategory = selectedCategoryOption();
   return {
-    topic: document.getElementById("topicInput").value.trim(),
+    topic: document.getElementById("topicInput").value.trim() || (selectedCategory ? selectedCategory.topic : ""),
     numQ: parseInt(document.getElementById("numQuestions").value, 10),
     difficulty: document.getElementById("difficulty").value,
     style: document.getElementById("quizStyle").value,
     boardLevel: document.getElementById("boardLevel").value,
     chapterId: document.getElementById("chapterSelect").value,
-    language: document.getElementById("languageSelect").value
+    language: document.getElementById("languageSelect").value,
+    selectedCategoryKey: selectedQuizCategoryKey,
+    selectedCategoryId: selectedCategory ? selectedCategory.apiCategoryId : null
   };
+}
+
+const OPEN_TRIVIA_API_BASE = "https://opentdb.com";
+let triviaCategoryCache = null;
+
+function decodeUrl3986(value) {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch (error) {
+    return String(value || "");
+  }
+}
+
+function normalizeTopicKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function getTriviaCategories() {
+  if (Array.isArray(triviaCategoryCache)) {
+    return triviaCategoryCache;
+  }
+
+  const response = await fetch(`${OPEN_TRIVIA_API_BASE}/api_category.php`);
+  if (!response.ok) {
+    throw new Error("Failed to load quiz categories.");
+  }
+
+  const data = await response.json();
+  triviaCategoryCache = Array.isArray(data.trivia_categories) ? data.trivia_categories : [];
+  return triviaCategoryCache;
+}
+
+async function resolveTriviaCategoryId(topic) {
+  const normalizedTopic = normalizeTopicKey(topic);
+  if (!normalizedTopic) {
+    return null;
+  }
+
+  const categories = await getTriviaCategories();
+  const topicWords = normalizedTopic.split(" ").filter(Boolean);
+  if (!topicWords.length) {
+    return null;
+  }
+
+  let bestMatch = null;
+  let bestScore = 0;
+
+  categories.forEach((category) => {
+    const categoryName = normalizeTopicKey(category.name);
+    let score = 0;
+
+    topicWords.forEach((word) => {
+      if (categoryName.includes(word)) {
+        score += 1;
+      }
+    });
+
+    if (categoryName.includes(normalizedTopic)) {
+      score += 4;
+    }
+    if (normalizedTopic.includes(categoryName)) {
+      score += 2;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = category;
+    }
+  });
+
+  return bestScore > 0 ? bestMatch.id : null;
+}
+
+function mapTriviaDifficulty(level) {
+  const normalized = String(level || "").toLowerCase();
+  if (normalized === "easy" || normalized === "medium" || normalized === "hard") {
+    return normalized;
+  }
+  return "medium";
+}
+
+function mapTriviaResultsToQuiz(results) {
+  return results.map((item) => {
+    const question = decodeUrl3986(item.question);
+    const correctAnswer = decodeUrl3986(item.correct_answer);
+    const incorrectAnswers = Array.isArray(item.incorrect_answers)
+      ? item.incorrect_answers.map((ans) => decodeUrl3986(ans))
+      : [];
+
+    const options = shuffleArray([correctAnswer].concat(incorrectAnswers), Math.random);
+    const correctIndex = options.indexOf(correctAnswer);
+
+    return {
+      question,
+      options,
+      correct: correctIndex < 0 ? 0 : correctIndex,
+      explanation: "Source: Open Trivia Database",
+      difficulty: mapTriviaDifficulty(item.difficulty),
+      category: decodeUrl3986(item.category || "General"),
+      level: "all",
+      chapterId: "all"
+    };
+  });
+}
+
+async function fetchQuizFromOpenTrivia(cfg) {
+  async function requestAttempt(amount, includeCategory, includeDifficulty, categoryId) {
+    const params = new URLSearchParams();
+    params.set("amount", String(amount));
+    params.set("type", "multiple");
+    params.set("encode", "url3986");
+
+    if (includeDifficulty && cfg.difficulty !== "mixed") {
+      params.set("difficulty", cfg.difficulty);
+    }
+
+    if (includeCategory && categoryId) {
+      params.set("category", String(categoryId));
+    }
+
+    const endpoint = `${OPEN_TRIVIA_API_BASE}/api.php?${params.toString()}`;
+    const response = await fetch(endpoint);
+    if (!response.ok) {
+      throw new Error("Could not fetch quiz questions from Open Trivia DB.");
+    }
+
+    const data = await response.json();
+    if (data.response_code !== 0 || !Array.isArray(data.results)) {
+      return [];
+    }
+    return data.results;
+  }
+
+  const categoryId = cfg.selectedCategoryId || await resolveTriviaCategoryId(cfg.topic);
+  const attempts = [
+    { includeCategory: true, includeDifficulty: true },
+    { includeCategory: true, includeDifficulty: false },
+    { includeCategory: false, includeDifficulty: true },
+    { includeCategory: false, includeDifficulty: false }
+  ];
+
+  const seenQuestions = new Set();
+  const mergedResults = [];
+
+  for (const attempt of attempts) {
+    if (attempt.includeCategory && !categoryId) {
+      continue;
+    }
+    if (!attempt.includeCategory && cfg.selectedCategoryId) {
+      continue;
+    }
+    if (attempt.includeDifficulty && cfg.difficulty === "mixed") {
+      continue;
+    }
+
+    const results = await requestAttempt(cfg.numQ, attempt.includeCategory, attempt.includeDifficulty, categoryId);
+    results.forEach((item) => {
+      const key = String(item.question || "");
+      if (!seenQuestions.has(key)) {
+        seenQuestions.add(key);
+        mergedResults.push(item);
+      }
+    });
+
+    if (mergedResults.length >= cfg.numQ) {
+      return mapTriviaResultsToQuiz(mergedResults.slice(0, cfg.numQ));
+    }
+  }
+
+  // Final wide retry: ask for a larger set with no category/difficulty, then trim.
+  const wideResults = await requestAttempt(
+    Math.max(cfg.numQ, 50),
+    Boolean(cfg.selectedCategoryId),
+    false,
+    categoryId
+  );
+  wideResults.forEach((item) => {
+    const key = String(item.question || "");
+    if (!seenQuestions.has(key)) {
+      seenQuestions.add(key);
+      mergedResults.push(item);
+    }
+  });
+
+  if (mergedResults.length >= cfg.numQ) {
+    return mapTriviaResultsToQuiz(mergedResults.slice(0, cfg.numQ));
+  }
+
+  throw new Error(getCurrentLanguage() === "bn"
+    ? "Open Trivia DB থেকে যথেষ্ট প্রশ্ন পাওয়া যায়নি।"
+    : "Open Trivia DB could not return enough questions after fallback retries.");
 }
 
 function csvEscape(value) {
@@ -1819,7 +2417,8 @@ async function generateQuiz() {
 
   try {
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    quiz = buildQuiz(topic, cfg.numQ, cfg.difficulty, cfg.style, cfg.boardLevel, cfg.chapterId, cfg.language);
+    quiz = await fetchQuizFromOpenTrivia(cfg);
+    historyFallbackUsed = false;
 
     if (!Array.isArray(quiz) || quiz.length !== cfg.numQ) {
       throw new Error(getCurrentLanguage() === "bn"
@@ -1848,33 +2447,60 @@ async function generateQuiz() {
 }
 
 function startQuiz() {
+  randomizeQuizForAttempt();
+
   currentIndex = 0;
   correctCount = 0;
   wrongCount = 0;
   userAnswers = new Array(quiz.length).fill(null);
   answered = false;
+  leaderboardSavedForCurrentQuiz = false;
+
+  const nameInput = document.getElementById("leaderboardNameInput");
+  if (nameInput) {
+    nameInput.value = getStoredPlayerName();
+  }
+  const saveBtn = document.getElementById("saveScoreBtn");
+  if (saveBtn) {
+    saveBtn.disabled = false;
+  }
 
   const language = getCurrentLanguage();
   document.getElementById("quizTopicLabel").textContent = language === "bn" ? "বিষয়" : "TOPIC";
   document.getElementById("quizTitleMain").textContent = `${currentTopic} Quiz`;
   document.getElementById("headerStat").style.display = "flex";
 
+  ensureQuestionTimerBadge();
   updateStats();
+  updateProgressUI();
   showScreen("quiz");
   renderQuestion();
+}
+
+function randomizeQuizForAttempt() {
+  if (!Array.isArray(quiz) || quiz.length === 0) {
+    return;
+  }
+
+  quiz = shuffleArray(quiz, Math.random).map((q) => {
+    const indexedOptions = q.options.map((opt, idx) => ({ opt, idx }));
+    const shuffledOptions = shuffleArray(indexedOptions, Math.random);
+    const newCorrect = shuffledOptions.findIndex((item) => item.idx === q.correct);
+
+    return {
+      ...q,
+      options: shuffledOptions.map((item) => item.opt),
+      correct: newCorrect
+    };
+  });
 }
 
 function renderQuestion() {
   const q = quiz[currentIndex];
   answered = false;
-  const language = getCurrentLanguage();
+  const questionArea = document.getElementById("questionArea");
 
-  const pct = Math.round((currentIndex / quiz.length) * 100);
-  document.getElementById("progressText").textContent = language === "bn"
-    ? `প্রশ্ন ${currentIndex + 1} / ${quiz.length}`
-    : `${t("questionWord")} ${currentIndex + 1} of ${quiz.length}`;
-  document.getElementById("progressPct").textContent = `${pct}%`;
-  document.getElementById("progressFill").style.width = `${pct}%`;
+  updateProgressUI();
 
   const nextBtn = document.getElementById("nextBtn");
   nextBtn.disabled = true;
@@ -1883,7 +2509,8 @@ function renderQuestion() {
   const diffLabel = q.difficulty || "medium";
   const diffMap = { easy: t("easy"), medium: t("medium"), hard: t("hard") };
 
-  document.getElementById("questionArea").innerHTML = `
+  const renderMarkup = () => {
+    questionArea.innerHTML = `
     <div class="question-card" id="qCard">
       <div class="q-indicator">
         <span>Q${currentIndex + 1}</span>
@@ -1906,12 +2533,34 @@ function renderQuestion() {
       </div>
     </div>
   `;
-
-  document.querySelectorAll(".option-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      handleAnswer(parseInt(btn.dataset.idx, 10));
+    questionArea.classList.add("question-enter");
+    requestAnimationFrame(() => {
+      questionArea.classList.add("question-enter-active");
     });
-  });
+
+    setTimeout(() => {
+      questionArea.classList.remove("question-enter", "question-enter-active", "question-exit");
+    }, 360);
+
+    document.querySelectorAll(".option-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        handleAnswer(parseInt(btn.dataset.idx, 10));
+      });
+    });
+
+    startQuestionTimer();
+  };
+
+  const hasExistingQuestion = questionArea.children.length > 0;
+  clearTimeout(questionTransitionTimer);
+
+  if (!hasExistingQuestion) {
+    renderMarkup();
+    return;
+  }
+
+  questionArea.classList.add("question-exit");
+  questionTransitionTimer = setTimeout(renderMarkup, 160);
 }
 
 function handleAnswer(chosen) {
@@ -1920,6 +2569,7 @@ function handleAnswer(chosen) {
   }
 
   answered = true;
+  stopQuestionTimer();
   const q = quiz[currentIndex];
   const isCorrect = chosen === q.correct;
   userAnswers[currentIndex] = chosen;
@@ -1930,6 +2580,7 @@ function handleAnswer(chosen) {
     wrongCount += 1;
   }
   updateStats();
+  updateProgressUI();
 
   document.querySelectorAll(".option-btn").forEach((btn) => {
     const idx = parseInt(btn.dataset.idx, 10);
@@ -1970,11 +2621,110 @@ function updateStats() {
   document.getElementById("headerScore").textContent = `${correctCount}/${quiz.length || 0}`;
 }
 
+function updateProgressUI() {
+  const total = quiz.length || 0;
+  const completed = userAnswers.filter((ans) => ans !== null).length;
+  const progressPct = total ? Math.round((completed / total) * 100) : 0;
+  const language = getCurrentLanguage();
+  const currentQuestion = total ? Math.min(currentIndex + 1, total) : 0;
+
+  document.getElementById("progressText").textContent = language === "bn"
+    ? `প্রশ্ন ${currentQuestion} / ${total}`
+    : `${t("questionWord")} ${currentQuestion} of ${total}`;
+
+  document.getElementById("progressPct").textContent = `${progressPct}%`;
+  document.getElementById("progressFill").style.width = `${progressPct}%`;
+}
+
+function ensureQuestionTimerBadge() {
+  const progressTop = document.querySelector(".progress-top");
+  if (!progressTop) {
+    return null;
+  }
+
+  let badge = document.getElementById("questionTimer");
+  if (badge) {
+    return badge;
+  }
+
+  badge = document.createElement("div");
+  badge.id = "questionTimer";
+  badge.style.fontSize = "0.78rem";
+  badge.style.fontWeight = "700";
+  badge.style.padding = "0.22rem 0.62rem";
+  badge.style.borderRadius = "999px";
+  badge.style.border = "1px solid #ccd8f4";
+  badge.style.background = "#ffffff";
+  badge.style.color = "#3556b2";
+  badge.style.transition = "all 0.2s ease";
+  progressTop.appendChild(badge);
+  return badge;
+}
+
+function updateQuestionTimerUI() {
+  const badge = ensureQuestionTimerBadge();
+  if (!badge) {
+    return;
+  }
+
+  const language = getCurrentLanguage();
+  const suffix = language === "bn" ? "সে" : "s";
+  badge.textContent = `${t("timerLabel")}: ${questionTimeLeft}${suffix}`;
+
+  if (questionTimeLeft <= 5) {
+    badge.style.color = "#b4234d";
+    badge.style.borderColor = "#ffc2d4";
+    badge.style.background = "#fff1f6";
+  } else if (questionTimeLeft <= 10) {
+    badge.style.color = "#9a6500";
+    badge.style.borderColor = "#ffdca4";
+    badge.style.background = "#fff8ea";
+  } else {
+    badge.style.color = "#3556b2";
+    badge.style.borderColor = "#ccd8f4";
+    badge.style.background = "#ffffff";
+  }
+}
+
+function stopQuestionTimer() {
+  if (questionTimerInterval) {
+    clearInterval(questionTimerInterval);
+    questionTimerInterval = null;
+  }
+}
+
+function startQuestionTimer() {
+  stopQuestionTimer();
+  questionTimeLeft = QUESTION_TIME_LIMIT;
+  updateQuestionTimerUI();
+
+  questionTimerInterval = setInterval(() => {
+    const quizScreenActive = document.getElementById("screen-quiz").classList.contains("active");
+    if (!quizScreenActive || answered) {
+      stopQuestionTimer();
+      return;
+    }
+
+    questionTimeLeft -= 1;
+    updateQuestionTimerUI();
+
+    if (questionTimeLeft <= 0) {
+      stopQuestionTimer();
+      if (!answered) {
+        advance(true);
+      }
+    }
+  }, 1000);
+}
+
 function advance(skip = false) {
+  stopQuestionTimer();
+
   if (skip && !answered) {
     userAnswers[currentIndex] = -1;
     wrongCount += 1;
     updateStats();
+    updateProgressUI();
   }
 
   currentIndex += 1;
@@ -1987,6 +2737,8 @@ function advance(skip = false) {
 }
 
 function showResults() {
+  stopQuestionTimer();
+
   const total = quiz.length;
   const pct = total ? Math.round((correctCount / total) * 100) : 0;
 
@@ -2001,26 +2753,23 @@ function showResults() {
 
   document.getElementById("scoreNumDisplay").textContent = String(correctCount);
   document.getElementById("scoreDenom").textContent = `/${total}`;
+  document.getElementById("rscTotal").textContent = String(total);
   document.getElementById("rscCorrect").textContent = String(correctCount);
   document.getElementById("rscWrong").textContent = String(total - correctCount);
   document.getElementById("rscPct").textContent = `${pct}%`;
 
-  let grade = t("keepGoing");
-  let msg = t("keepGoingMsg");
+  let grade = "Needs Improvement";
+  let msg = "Review the explanations and try again to improve your score.";
 
-  if (pct === 100) {
-    grade = t("perfect");
-    msg = t("perfectMsg");
-  } else if (pct >= 85) {
-    grade = t("excellent");
-    msg = t("excellentMsg");
-  } else if (pct >= 70) {
-    grade = t("great");
-    msg = t("greatMsg");
+  if (pct >= 80) {
+    grade = "Excellent";
+    msg = "Outstanding work. You demonstrated strong understanding across the quiz.";
   } else if (pct >= 50) {
-    grade = t("solid");
-    msg = t("solidMsg");
+    grade = "Good";
+    msg = "Good effort. You are on the right track with room for improvement.";
   }
+
+  document.getElementById("rscPerformance").textContent = grade;
 
   document.getElementById("resultsGrade").textContent = grade;
   document.getElementById("resultsMessage").textContent = msg;
@@ -2044,6 +2793,12 @@ function showResults() {
       </div>
     `;
   }).join("");
+
+  const nameInput = document.getElementById("leaderboardNameInput");
+  if (nameInput) {
+    nameInput.value = getStoredPlayerName();
+  }
+  renderLeaderboard();
 
   showScreen("results");
 }
@@ -2070,6 +2825,7 @@ document.getElementById("boardLevel").addEventListener("change", updateChapterOp
 document.getElementById("chapterSelect").addEventListener("change", syncChapterChipSelection);
 document.getElementById("languageSelect").addEventListener("change", () => {
   applyLanguageToUI();
+  updateQuestionTimerUI();
   updateChapterOptions();
   if (document.getElementById("screen-quiz").classList.contains("active") && quiz.length) {
     renderQuestion();
@@ -2085,12 +2841,36 @@ document.getElementById("chapterChips").addEventListener("click", (event) => {
   syncChapterChipSelection();
 });
 
-document.querySelectorAll(".chip").forEach((chip) => {
-  chip.addEventListener("click", () => {
-    document.getElementById("topicInput").value = chip.dataset.topic;
-    updateChapterOptions();
-    document.getElementById("topicInput").focus();
+document.getElementById("themeToggleBtn").addEventListener("click", () => {
+  const isDark = document.body.getAttribute("data-theme") === "dark";
+  applyTheme(isDark ? "light" : "dark");
+});
+
+document.querySelectorAll(".category-choice").forEach((card) => {
+  card.addEventListener("click", () => {
+    selectQuizCategory(card.dataset.category);
   });
+});
+
+document.getElementById("categoryContinueBtn").addEventListener("click", () => {
+  if (!selectedQuizCategoryKey) {
+    return;
+  }
+  showScreen("home");
+  const topicInput = document.getElementById("topicInput");
+  if (topicInput) {
+    topicInput.focus();
+  }
+});
+
+document.getElementById("topicChips").addEventListener("click", (event) => {
+  const chip = event.target.closest(".chip");
+  if (!chip || !chip.dataset.topic) {
+    return;
+  }
+  document.getElementById("topicInput").value = chip.dataset.topic;
+  updateChapterOptions();
+  document.getElementById("topicInput").focus();
 });
 
 document.getElementById("nextBtn").addEventListener("click", () => advance(false));
@@ -2100,12 +2880,15 @@ document.getElementById("exportBtn").addEventListener("click", exportFilteredSet
 document.getElementById("answerSheetBtn").addEventListener("click", () => exportPdf("full"));
 document.getElementById("questionSheetBtn").addEventListener("click", () => exportPdf("questions"));
 document.getElementById("answerKeyBtn").addEventListener("click", () => exportPdf("key"));
+document.getElementById("saveScoreBtn").addEventListener("click", saveCurrentScoreToLeaderboard);
 
 document.getElementById("newTopicBtn").addEventListener("click", () => {
+  stopQuestionTimer();
   document.getElementById("headerStat").style.display = "none";
   document.getElementById("generateBtn").disabled = false;
-  showScreen("home");
+  showScreen("category");
 });
 
+initThemePreference();
 applyLanguageToUI();
 updateChapterOptions();
